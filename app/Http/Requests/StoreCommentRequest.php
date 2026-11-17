@@ -19,9 +19,9 @@ class StoreCommentRequest extends FormRequest
             'user_name' => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9]+$/'],
             'email'     => ['required', 'email:rfc', 'max:255'],
             'home_page' => ['nullable', 'url:http,https', 'max:255'],
-            'text'      => ['required', 'string', 'max:5000', new ValidCommentMarkup],
+            'text'      => ['required', 'string', 'max:5000', new ValidCommentMarkup()],
             'parent_id' => ['nullable', 'integer', 'exists:comments,id'],
-            'captcha'   => ['required', 'string', new Recaptcha],
+            'captcha'   => ['required', 'string', new Recaptcha()],
         ];
     }
 

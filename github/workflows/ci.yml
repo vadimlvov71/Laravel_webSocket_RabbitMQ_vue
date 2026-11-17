@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+# новый запуск отменяет предыдущий для той же ветки
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Этап 1: стиль кода (PSR-12, правила в pint.json)
+  lint:
+    name: "1. Code style (PSR-12)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-app
+      - name: Check code style
+        run: ./vendor/bin/pint --test
+
+  # Этап 2: модульные тесты (в том числе StoreCommentRequestTest)
+  test:
+    name: "2. Unit tests"
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      APP_ENV: testing
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      BROADCAST_CONNECTION: "null"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-app
+      - name: Prepare Laravel
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+      - name: Run unit tests
+        run: php artisan test --testsuite=Unit
+
+  # Этап 3a: сборка фронтенда (Vue + Tailwind)
+  frontend:
+    name: "3. Frontend build"
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  # Этап 3b: проверка, что docker-окружение собирается
+  docker:
+    name: "3. Docker build"
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compose file
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+      - name: Build images
+        run: docker compose build
