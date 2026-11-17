@@ -1,0 +1,157 @@
+name: laravel-app
+ 
+x-php: &php
+  build:
+    context: ./docker/php
+    args:
+      UID: ${UID:-1000}
+      GID: ${GID:-1000}
+  image: laravel-app-php:8.4
+  working_dir: /var/www/html
+  volumes:
+    - ./:/var/www/html
+  #env_file: .env bug
+  networks: [app]
+  depends_on:
+    mysql:    { condition: service_healthy }
+    redis:    { condition: service_healthy }
+    rabbitmq: { condition: service_healthy }
+ 
+services:
+  # PHP-FPM
+  app:
+    <<: *php
+    container_name: laravel-app
+ 
+  # Queue worker (RabbitMQ)
+  queue:
+    <<: *php
+    container_name: laravel-queue
+    command: php artisan queue:work rabbitmq --tries=3 --sleep=3 --max-time=3600 --verbose
+    restart: unless-stopped
+    depends_on:
+      - app
+      - mysql
+      - redis
+      - rabbitmq
+ 
+  # Scheduler (php artisan schedule:run раз в минуту)
+  #scheduler:
+  #  <<: *php
+  #  container_name: laravel-scheduler
+  #  command: php artisan schedule:work
+  #  restart: unless-stopped
+  reverb:
+    <<: *php
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080 --debug
+    restart: unless-stopped
+    ports:
+      - "${REVERB_FORWARD_PORT:-8085}:8080"
+  pulse:
+    <<: *php
+    command: php artisan pulse:check
+    restart: unless-stopped
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: laravel-nginx
+    ports:
+      - "${APP_PORT:-8080}:80"
+    volumes:
+      - ./:/var/www/html:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on: [app]
+    networks: [app]
+ 
+  # Node: Vite dev-server
+  node:
+    image: node:22-alpine
+    working_dir: /var/www/html
+    user: "${UID:-1000}:${GID:-1000}"
+    #Строка npm_config_cache нужна, потому что при запуске от пользователя с UID 1000 npm иначе может упасть с ошибкой EACCES.
+    environment:
+      npm_config_cache: /tmp/.npm   # у произвольного UID нет домашней папки
+    volumes:
+      - ./:/var/www/html
+    ports:
+      - "${VITE_PORT:-5173}:${VITE_PORT:-5173}"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    networks: [app]
+ 
+  mysql:
+    image: mysql:8.4
+    container_name: laravel-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+    #ports:
+    #  - "${DB_FORWARD_PORT:-3306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_ROOT_PASSWORD:-root}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [app]
+  phpmyadmin:
+    image: phpmyadmin:5
+    container_name: laravel-phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+      UPLOAD_LIMIT: 128M
+    ports:
+      - "${PMA_PORT:-8081}:80"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks: [app]
+  redis:
+    image: redis:7-alpine
+    container_name: laravel-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    #ports:
+    #  - "${REDIS_FORWARD_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [app]
+ 
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    container_name: laravel-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
+    ports:
+      #- "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_UI_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks: [app]
+ 
+networks:
+  app:
+ 
+volumes:
+  mysql-data:
+  redis-data:
+  rabbitmq-data:
