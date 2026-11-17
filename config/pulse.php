@@ -6,7 +6,6 @@ use Laravel\Pulse\Recorders;
 use Laravel\Reverb\Pulse\Recorders\ReverbConnections;
 use Laravel\Reverb\Pulse\Recorders\ReverbMessages;
 
-
 return [
 
     /*
