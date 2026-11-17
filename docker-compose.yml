@@ -147,7 +147,24 @@ services:
       timeout: 10s
       retries: 10
     networks: [app]
- 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_VERSION:-8.12.0}
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"       # только для локальной разработки
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"     # одинаковые значения
+    mem_limit: 1g                           # жёсткий потолок для контейнера
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks: [app]
 networks:
   app:
  
@@ -155,3 +172,4 @@ volumes:
   mysql-data:
   redis-data:
   rabbitmq-data:
+  es-data:
