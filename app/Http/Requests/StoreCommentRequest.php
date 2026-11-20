@@ -16,7 +16,7 @@ class StoreCommentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'user_name' => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9]+$/'],
+            'user_name' => ['required', 'string', 'max:64', 'regex:/^(?=(?:[^A-Za-z]*[A-Za-z]){2})[A-Za-z0-9_-]+$/'],
             'email'     => ['required', 'email:rfc', 'max:255'],
             'home_page' => ['nullable', 'url:http,https', 'max:255'],
             'text'      => ['required', 'string', 'max:5000', new ValidCommentMarkup()],
@@ -28,7 +28,7 @@ class StoreCommentRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'user_name.regex' => 'User Name may contain only Latin letters and digits.',
+            'user_name.regex' => 'User Name may contain only Latin letters, digits, underscore and hyphen and must include at least two letters.',
             'captcha.required' => 'Please confirm that you are not a robot.',
         ];
     }

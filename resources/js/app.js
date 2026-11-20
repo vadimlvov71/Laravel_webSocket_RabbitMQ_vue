@@ -1,11 +1,7 @@
 import './bootstrap';
 import './echo';
 import { createApp } from 'vue';
-import { createVuetify } from 'vuetify';
-import 'vuetify/styles';
-import '@mdi/font/css/materialdesignicons.css';
 import App from './App.vue';
 
-const vuetify = createVuetify();
-
-createApp(App).use(vuetify).mount('#app');
+// Vuetify не подключаем: его reset-стили в CSS-слоях перекрывают утилиты Tailwind.
+createApp(App).mount('#app');

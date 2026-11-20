@@ -1,8 +1,10 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue';
 import axios from 'axios';
+import BaseModal from './components/BaseModal.vue';
 import CommentForm from './components/CommentForm.vue';
 import CommentNode from './components/CommentNode.vue';
+import { listEnter } from './transitions';
 
 const columns = [
     { key: 'user_name', label: 'User Name' },
@@ -15,8 +17,13 @@ const meta = reactive({ current_page: 1, last_page: 1, total: 0 });
 const sort = ref('created_at');
 const dir = ref('desc'); // по умолчанию LIFO
 const loading = ref(false);
+const loadError = ref(false);
 const replyTo = ref(null);
-const formRef = ref(null);
+const modalOpen = ref(false);
+const notice = ref('');
+let noticeTimer = null;
+
+const modalTitle = computed(() => (replyTo.value ? `Reply to ${replyTo.value.user_name}` : 'Add comment'));
 
 const fmt = (iso) => new Date(iso).toLocaleString();
 
@@ -26,6 +33,9 @@ async function load(page = meta.current_page) {
         const { data } = await axios.get('/comments', { params: { sort: sort.value, dir: dir.value, page } });
         comments.value = data.data;
         Object.assign(meta, data.meta);
+        loadError.value = false;
+    } catch {
+        loadError.value = true;
     } finally {
         loading.value = false;
     }
@@ -47,13 +57,17 @@ const pages = computed(() => {
     return Array.from({ length: to - from + 1 }, (_, i) => from + i);
 });
 
-function startReply(comment) {
+function openForm(comment = null) {
     replyTo.value = comment;
-    formRef.value?.$el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    modalOpen.value = true;
 }
 
 function onCreated() {
-    replyTo.value = null;
+    // replyTo не сбрасываем: заголовок окна не должен меняться во время анимации закрытия
+    modalOpen.value = false;
+    notice.value = 'Your comment has been sent';
+    clearTimeout(noticeTimer);
+    noticeTimer = setTimeout(() => (notice.value = ''), 5000);
     load();
 }
 
@@ -63,14 +77,27 @@ onMounted(() => {
     window.Echo?.channel('comments').listen('.comment.created', () => load());
 });
 
-onBeforeUnmount(() => window.Echo?.leave('comments'));
+onBeforeUnmount(() => {
+    window.Echo?.leave('comments');
+    clearTimeout(noticeTimer);
+});
 </script>
 
 <template>
     <div class="mx-auto max-w-5xl space-y-6 px-4 py-8">
-        <h1 class="text-2xl font-bold">Comments</h1>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <h1 class="text-2xl font-bold">Comments</h1>
+            <button type="button" @click="openForm()"
+                    class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">Add comment</button>
+        </div>
 
-        <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm" :class="{ 'opacity-60': loading }">
+        <!-- Регион всегда в DOM, чтобы скринридер объявил появившийся текст -->
+        <p role="status" class="text-sm font-medium text-green-700" :class="{ 'sr-only': !notice }">
+            <span v-if="notice">✓ {{ notice }}</span>
+        </p>
+
+        <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm" :class="{ 'opacity-60': loading }"
+             :aria-busy="loading">
             <table class="min-w-full text-left text-sm">
                 <thead class="bg-gray-50 text-gray-600">
                     <tr>
@@ -83,8 +110,9 @@ onBeforeUnmount(() => window.Echo?.leave('comments'));
                         <th class="px-4 py-3 font-semibold">Text</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100">
-                    <template v-for="c in comments" :key="c.id">
+                <!-- Один tbody на комментарий: TransitionGroup нужен один ключевой элемент на запись -->
+                <TransitionGroup v-bind="listEnter">
+                    <tbody v-for="c in comments" :key="c.id" class="divide-y divide-gray-100 border-t border-gray-100">
                         <tr class="align-top">
                             <td class="px-4 py-3 font-medium">
                                 {{ c.user_name }}
@@ -95,20 +123,25 @@ onBeforeUnmount(() => window.Echo?.leave('comments'));
                             <td class="whitespace-nowrap px-4 py-3 text-gray-500">{{ fmt(c.created_at) }}</td>
                             <td class="min-w-64 px-4 py-3">
                                 <div class="comment-text" v-html="c.text"></div>
-                                <button type="button" class="mt-2 text-xs font-medium text-blue-600 hover:underline"
-                                        @click="startReply(c)">Reply</button>
+                                <button type="button" :aria-label="`Reply to ${c.user_name}`"
+                                        class="mt-2 rounded text-xs font-medium text-blue-600 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                                        @click="openForm(c)">Reply</button>
                             </td>
                         </tr>
                         <tr v-if="c.replies.length">
                             <td colspan="4" class="bg-gray-50 px-4 py-3">
-                                <div class="space-y-2">
-                                    <CommentNode v-for="r in c.replies" :key="r.id" :comment="r" :depth="1" @reply="startReply" />
-                                </div>
+                                <TransitionGroup v-bind="listEnter" appear tag="div" class="space-y-2">
+                                    <CommentNode v-for="r in c.replies" :key="r.id" :comment="r" :depth="1" @reply="openForm" />
+                                </TransitionGroup>
                             </td>
                         </tr>
-                    </template>
-                    <tr v-if="!comments.length && !loading">
-                        <td colspan="4" class="px-4 py-8 text-center text-gray-500">No comments yet.</td>
+                    </tbody>
+                </TransitionGroup>
+                <tbody v-if="!comments.length && !loadError" class="border-t border-gray-100">
+                    <tr>
+                        <td colspan="4" class="px-4 py-8 text-center text-gray-500">
+                            {{ loading ? 'Loading comments…' : 'No comments yet.' }}
+                        </td>
                     </tr>
                 </tbody>
             </table>
@@ -127,7 +160,14 @@ onBeforeUnmount(() => window.Echo?.leave('comments'));
                     :disabled="meta.current_page === meta.last_page" @click="load(meta.current_page + 1)">Next ›</button>
         </nav>
 
-        <CommentForm ref="formRef" :reply-to="replyTo" @created="onCreated" @cancel-reply="replyTo = null" />
+        <p v-if="loadError" role="alert" class="text-sm text-red-600">
+            Could not load comments.
+            <button type="button" class="rounded font-medium underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600" @click="load()">Retry</button>
+        </p>
+
+        <BaseModal :open="modalOpen" :title="modalTitle" @close="modalOpen = false">
+            <CommentForm :reply-to="replyTo" @created="onCreated" />
+        </BaseModal>
     </div>
 </template>
 

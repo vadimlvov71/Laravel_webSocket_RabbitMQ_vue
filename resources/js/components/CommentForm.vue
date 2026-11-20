@@ -3,9 +3,10 @@ import { ref, reactive, onMounted, nextTick } from 'vue';
 import axios from 'axios';
 
 const props = defineProps({ replyTo: { type: Object, default: null } });
-const emit = defineEmits(['created', 'cancel-reply']);
+const emit = defineEmits(['created']);
 
-const form = reactive({ user_name: '', email: '', home_page: '', text: '' });
+const blank = () => ({ user_name: '', email: '', home_page: '', text: '' });
+const form = reactive(blank());
 const errors = reactive({});
 const captchaToken = ref('');
 const captchaEl = ref(null);
@@ -52,11 +53,16 @@ function markupError(text) {
     return stack.length ? `Tag <${stack.at(-1)}> is not closed.` : null;
 }
 
-function validate() {
+function clearErrors() {
     Object.keys(errors).forEach((k) => delete errors[k]);
+}
+
+function validate() {
+    clearErrors();
 
     if (!form.user_name) errors.user_name = 'User Name is required.';
-    else if (!/^[A-Za-z0-9]+$/.test(form.user_name)) errors.user_name = 'Only Latin letters and digits are allowed.';
+    else if (!/^[A-Za-z0-9_-]+$/.test(form.user_name)) errors.user_name = 'Only Latin letters, digits, underscore and hyphen are allowed.';
+    else if ((form.user_name.match(/[A-Za-z]/g) ?? []).length < 2) errors.user_name = 'User Name must include at least two Latin letters.';
 
     if (!form.email) errors.email = 'E-mail is required.';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = 'Enter a valid e-mail.';
@@ -108,7 +114,8 @@ async function submit() {
             parent_id: props.replyTo?.id ?? null,
             captcha: captchaToken.value,
         });
-        form.text = '';
+        Object.assign(form, blank());
+        clearErrors();
         emit('created');
     } catch (e) {
         if (e.response?.status === 422) {
@@ -130,14 +137,8 @@ const input = 'mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm f
 </script>
 
 <template>
-    <form class="space-y-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-6" novalidate @submit.prevent="submit">
-        <div class="flex items-center justify-between">
-            <h2 class="text-lg font-semibold">
-                {{ replyTo ? `Reply to ${replyTo.user_name}` : 'Add comment' }}
-            </h2>
-            <button v-if="replyTo" type="button" class="text-sm text-gray-500 hover:text-red-600"
-                    @click="emit('cancel-reply')">Cancel reply ✕</button>
-        </div>
+    <!-- Заголовок и закрытие даёт BaseModal, поэтому форма без собственной рамки -->
+    <form class="space-y-4" novalidate @submit.prevent="submit">
 
         <div class="grid gap-4 sm:grid-cols-3">
             <label class="block text-sm font-medium">
@@ -174,12 +175,9 @@ const input = 'mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm f
             <span v-if="errors.captcha" class="text-xs text-red-600">{{ errors.captcha }}</span>
         </div>
 
-        <p v-if="errors.form" class="text-sm text-red-600">{{ errors.form }}</p>
+        <p v-if="errors.form" role="alert" class="text-sm text-red-600">{{ errors.form }}</p>
         <button type="submit" :disabled="submitting"
-        style="background:#2563eb;color:#fff;padding:8px 20px;border-radius:6px">
-        </button>
-        <button type="submit" :disabled="submitting"
-                class="rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+                class="rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50">
             {{ submitting ? 'Sending…' : 'Submit' }}
         </button>
     </form>

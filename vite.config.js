@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from 'vite';
 import laravel from 'laravel-vite-plugin';
 import vue from '@vitejs/plugin-vue';
+import tailwindcss from '@tailwindcss/vite';
 import vuetify from 'vite-plugin-vuetify';
 
 export default defineConfig(({ mode }) => {
@@ -17,6 +18,7 @@ export default defineConfig(({ mode }) => {
                 template: { transformAssetUrls: { base: null, includeAbsolute: false } },
             }),
             vuetify({ autoImport: true }),   // компоненты подключаются автоматически
+            tailwindcss(),                   // без него app.css отдаётся как есть и утилиты Tailwind не генерируются
         ],
         server: {
             host: '0.0.0.0',

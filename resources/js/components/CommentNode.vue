@@ -1,4 +1,6 @@
 <script setup>
+import { listEnter } from '../transitions';
+
 defineProps({
     comment: { type: Object, required: true },
     depth: { type: Number, default: 1 },
@@ -18,13 +20,14 @@ const fmt = (iso) => new Date(iso).toLocaleString();
                 <time>{{ fmt(comment.created_at) }}</time>
             </div>
             <div class="comment-text mt-2 text-sm text-gray-800" v-html="comment.text"></div>
-            <button type="button" class="mt-2 text-xs font-medium text-blue-600 hover:underline"
+            <button type="button" :aria-label="`Reply to ${comment.user_name}`"
+                    class="mt-2 rounded text-xs font-medium text-blue-600 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
                     @click="emit('reply', comment)">Reply</button>
         </div>
 
-        <div v-if="comment.replies.length" class="mt-2 space-y-2">
+        <TransitionGroup v-if="comment.replies.length" v-bind="listEnter" appear tag="div" class="mt-2 space-y-2">
             <CommentNode v-for="r in comment.replies" :key="r.id" :comment="r"
                          :depth="depth + 1" @reply="emit('reply', $event)" />
-        </div>
+        </TransitionGroup>
     </div>
 </template>

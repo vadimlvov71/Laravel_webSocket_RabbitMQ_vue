@@ -20,6 +20,13 @@ class StoreCommentRequestTest extends TestCase
         $this->assertTrue($this->validator()->passes());
     }
 
+    public function test_user_name_allows_underscore_hyphen_and_digits_with_two_letters(): void
+    {
+        foreach (['john_doe', 'john-doe', 'John_Doe-42', 'a_1-b', 'Jo'] as $name) {
+            $this->assertTrue($this->validator(['user_name' => $name])->passes(), $name);
+        }
+    }
+
     public function test_home_page_is_optional(): void
     {
         $this->assertTrue($this->validator(['home_page' => null])->passes());
@@ -49,6 +56,9 @@ class StoreCommentRequestTest extends TestCase
             'user_name with space' => ['user_name', 'Bad Name'],
             'user_name with symbols' => ['user_name', 'bad_name!'],
             'user_name cyrillic' => ['user_name', 'Иван'],
+            'user_name one letter' => ['user_name', 'a123'],
+            'user_name digits only' => ['user_name', '12345'],
+            'user_name symbols only' => ['user_name', '_-_'],
             'email empty' => ['email', ''],
             'email invalid' => ['email', 'not-an-email'],
             'home_page not a url' => ['home_page', 'just text'],
