@@ -18,6 +18,23 @@ export const pop = {
     leaveToClass: 'opacity-0 translate-y-8 sm:translate-y-0 sm:scale-95',
 };
 
+// Картинка в лайтбоксе: «вырастает» из уменьшенной копии.
+export const zoom = {
+    enterActiveClass: 'motion-safe:transition motion-safe:duration-300 motion-safe:ease-out',
+    leaveActiveClass: 'motion-safe:transition motion-safe:duration-150 motion-safe:ease-in',
+    enterFromClass: 'opacity-0 scale-75',
+    leaveToClass: 'opacity-0 scale-90',
+};
+
+// Уведомления: выезжают справа, уходят вверх; соседние сдвигаются плавно (moveClass).
+export const toast = {
+    enterActiveClass: 'motion-safe:transition motion-safe:duration-300 motion-safe:ease-out',
+    leaveActiveClass: 'motion-safe:transition motion-safe:duration-200 motion-safe:ease-in',
+    enterFromClass: 'opacity-0 translate-x-8',
+    leaveToClass: 'opacity-0 -translate-y-2',
+    moveClass: 'motion-safe:transition-transform motion-safe:duration-300',
+};
+
 // Появление новых комментариев. Уход без анимации: строка таблицы,
 // исчезающая с задержкой, заставила бы список прыгать после её удаления.
 export const listEnter = {

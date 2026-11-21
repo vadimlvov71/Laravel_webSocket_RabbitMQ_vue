@@ -9,7 +9,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Comment extends Model
 {
-    protected $fillable = ['parent_id', 'root_id', 'user_name', 'email', 'home_page', 'text'];
+    protected $fillable = [
+        'parent_id', 'root_id', 'user_name', 'email', 'home_page', 'text',
+        'attachment_path', 'attachment_type', 'attachment_name',
+    ];
 
     protected static function booted(): void
     {

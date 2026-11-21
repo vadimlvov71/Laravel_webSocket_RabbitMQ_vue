@@ -16,8 +16,6 @@ use Illuminate\Support\Collection;
  */
 class CommentRepository
 {
-    public const PER_PAGE = 25;
-
     /**
      * Страница корневых комментариев (parent_id IS NULL).
      *
@@ -32,7 +30,7 @@ class CommentRepository
             ->whereNull('parent_id')
             ->orderBy($sort->value, $dir)
             ->orderBy('id', $dir)
-            ->paginate(self::PER_PAGE, ['*'], 'page', $page);
+            ->paginate(self::perPage(), ['*'], 'page', $page);
     }
 
     /**
@@ -53,6 +51,32 @@ class CommentRepository
             ->groupBy('parent_id');
     }
 
+    /** Размер страницы задаётся только в config/comments.php. */
+    public static function perPage(): int
+    {
+        return (int) config('comments.per_page');
+    }
+
+    /**
+     * Страница, на которую paginateRoots() поставит корневой комментарий.
+     * Считаем корни, стоящие раньше него при том же порядке (поле, затем id).
+     */
+    public function pageOfRoot(Comment $root, CommentSort $sort, string $dir): int
+    {
+        $column = $sort->value;
+        $value = $root->getRawOriginal($column);
+        $before = $dir === 'desc' ? '>' : '<';
+
+        $ahead = Comment::query()
+            ->whereNull('parent_id')
+            ->where(fn ($q) => $q
+                ->where($column, $before, $value)
+                ->orWhere(fn ($q) => $q->where($column, $value)->where('id', $before, $root->id)))
+            ->count();
+
+        return intdiv($ahead, self::perPage()) + 1;
+    }
+
     public function findOrFail(int $id): Comment
     {
         return Comment::findOrFail($id);
@@ -62,7 +86,7 @@ class CommentRepository
      * Создаёт комментарий. Корневой идентификатор ветки (root_id) вычисляется
      * здесь, чтобы вызывающий код не знал про устройство дерева.
      *
-     * @param  array{user_name: string, email: string, home_page: ?string, text: string}  $data
+     * @param  array{user_name: string, email: string, home_page: ?string, text: string, attachment_path?: string, attachment_type?: string, attachment_name?: string}  $data
      */
     public function create(array $data, ?Comment $parent): Comment
     {
