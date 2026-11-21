@@ -1,10 +1,17 @@
 <script setup>
-import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, reactive, computed, nextTick, onMounted, onBeforeUnmount } from 'vue';
 import axios from 'axios';
+import AttachmentLightbox from './components/AttachmentLightbox.vue';
+import AttachmentPreview from './components/AttachmentPreview.vue';
 import BaseModal from './components/BaseModal.vue';
 import CommentForm from './components/CommentForm.vue';
 import CommentNode from './components/CommentNode.vue';
+import ToastStack from './components/ToastStack.vue';
 import { listEnter } from './transitions';
+import { pushToast } from './toasts';
+import { rememberMine, isMine } from './myComments';
+import { highlight, highlightClass, reveal } from './highlight';
+import { countUnread, startUnreadTitle, stopUnreadTitle } from './unreadTitle';
 
 const columns = [
     { key: 'user_name', label: 'User Name' },
@@ -21,6 +28,9 @@ const loadError = ref(false);
 const replyTo = ref(null);
 const modalOpen = ref(false);
 const notice = ref('');
+// вложение не сбрасываем при закрытии: содержимое нужно до конца анимации ухода
+const preview = ref(null);
+const previewOpen = ref(false);
 let noticeTimer = null;
 
 const modalTitle = computed(() => (replyTo.value ? `Reply to ${replyTo.value.user_name}` : 'Add comment'));
@@ -62,23 +72,72 @@ function openForm(comment = null) {
     modalOpen.value = true;
 }
 
-function onCreated() {
+function openPreview(attachment) {
+    preview.value = attachment;
+    previewOpen.value = true;
+}
+
+// ---------- новые комментарии ----------
+const containsId = (list, id) => list.some((c) => c.id === id || containsId(c.replies ?? [], id));
+
+/**
+ * Показать комментарий: если его ветки нет на текущей странице, спрашиваем
+ * у сервера номер страницы при текущей сортировке и открываем её.
+ */
+async function showComment(id) {
+    if (!containsId(comments.value, id)) {
+        try {
+            const { data } = await axios.get(`/comments/${id}/page`, { params: { sort: sort.value, dir: dir.value } });
+            await load(data.page);
+        } catch {
+            return;
+        }
+    }
+    await nextTick();
+    reveal(id);
+}
+
+async function onCreated(id) {
     // replyTo не сбрасываем: заголовок окна не должен меняться во время анимации закрытия
     modalOpen.value = false;
     notice.value = 'Your comment has been sent';
     clearTimeout(noticeTimer);
     noticeTimer = setTimeout(() => (notice.value = ''), 5000);
-    load();
+    rememberMine(id);
+    // своё событие из WebSocket не придёт (toOthers), поэтому показываем сами
+    await load();
+    await showComment(id);
+}
+
+// WebSocket (Reverb): событие приходит во все вкладки, кроме вкладки автора
+async function onRemoteComment(e) {
+    countUnread();
+    await load();
+
+    const visible = containsId(comments.value, e.id);
+    if (visible) highlight(e.id);
+
+    const toMe = isMine(e.parent_id);
+    let title = `New comment from ${e.user_name}`;
+    if (toMe) title = `${e.user_name} replied to your comment`;
+    else if (e.parent_id) title = `${e.user_name} replied to ${e.parent_user_name ?? 'a comment'}`;
+
+    pushToast({
+        title,
+        variant: toMe ? 'mine' : 'info',
+        action: { label: visible ? 'Show' : 'Show (other page)', run: () => showComment(e.id) },
+    });
 }
 
 onMounted(() => {
     load(1);
-    // WebSocket (Reverb): обновляем список, когда кто-то добавил комментарий
-    window.Echo?.channel('comments').listen('.comment.created', () => load());
+    startUnreadTitle();
+    window.Echo?.channel('comments').listen('.comment.created', onRemoteComment);
 });
 
 onBeforeUnmount(() => {
     window.Echo?.leave('comments');
+    stopUnreadTitle();
     clearTimeout(noticeTimer);
 });
 </script>
@@ -113,7 +172,7 @@ onBeforeUnmount(() => {
                 <!-- Один tbody на комментарий: TransitionGroup нужен один ключевой элемент на запись -->
                 <TransitionGroup v-bind="listEnter">
                     <tbody v-for="c in comments" :key="c.id" class="divide-y divide-gray-100 border-t border-gray-100">
-                        <tr class="align-top">
+                        <tr :id="`comment-${c.id}`" class="scroll-mt-24 align-top" :class="highlightClass(c.id)">
                             <td class="px-4 py-3 font-medium">
                                 {{ c.user_name }}
                                 <a v-if="c.home_page" :href="c.home_page" target="_blank" rel="nofollow noopener"
@@ -123,6 +182,7 @@ onBeforeUnmount(() => {
                             <td class="whitespace-nowrap px-4 py-3 text-gray-500">{{ fmt(c.created_at) }}</td>
                             <td class="min-w-64 px-4 py-3">
                                 <div class="comment-text" v-html="c.text"></div>
+                                <AttachmentPreview v-if="c.attachment" :attachment="c.attachment" @open="openPreview" />
                                 <button type="button" :aria-label="`Reply to ${c.user_name}`"
                                         class="mt-2 rounded text-xs font-medium text-blue-600 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
                                         @click="openForm(c)">Reply</button>
@@ -131,7 +191,8 @@ onBeforeUnmount(() => {
                         <tr v-if="c.replies.length">
                             <td colspan="4" class="bg-gray-50 px-4 py-3">
                                 <TransitionGroup v-bind="listEnter" appear tag="div" class="space-y-2">
-                                    <CommentNode v-for="r in c.replies" :key="r.id" :comment="r" :depth="1" @reply="openForm" />
+                                    <CommentNode v-for="r in c.replies" :key="r.id" :comment="r" :depth="1"
+                                                 @reply="openForm" @preview="openPreview" />
                                 </TransitionGroup>
                             </td>
                         </tr>
@@ -168,6 +229,9 @@ onBeforeUnmount(() => {
         <BaseModal :open="modalOpen" :title="modalTitle" @close="modalOpen = false">
             <CommentForm :reply-to="replyTo" @created="onCreated" />
         </BaseModal>
+
+        <AttachmentLightbox :open="previewOpen" :attachment="preview" @close="previewOpen = false" />
+        <ToastStack />
     </div>
 </template>
 

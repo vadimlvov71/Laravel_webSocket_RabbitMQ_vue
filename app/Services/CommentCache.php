@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Repositories\CommentRepository;
 use Closure;
 use Illuminate\Contracts\Cache\Repository;
 
@@ -21,14 +22,36 @@ class CommentCache
     }
 
     /**
-     * @param  Closure(): array<string, mixed>  $build  строит страницу, если её нет в кэше
-     * @return array<string, mixed>
+     * Пустые страницы после первой не кэшируются: номер страницы задаёт клиент,
+     * и перебором ?page=1..N можно было бы забить кэш страницами за пределами списка.
+     *
+     * @param  Closure(): array{data: array<int, mixed>}  $build  строит страницу, если её нет в кэше
+     * @return array{data: array<int, mixed>}
      */
     public function remember(string $sort, string $dir, int $page, Closure $build): array
     {
-        $key = sprintf('comments:v%d:%s:%s:%d', $this->version(), $sort, $dir, $page);
+        // размер страницы в ключе: при его смене в конфиге старые страницы не отдаются
+        $key = sprintf(
+            'comments:v%d:p%d:%s:%s:%d',
+            $this->version(),
+            CommentRepository::perPage(),
+            $sort,
+            $dir,
+            $page
+        );
 
-        return $this->cache->remember($key, (int) config('comments.cache_ttl'), $build);
+        $cached = $this->cache->get($key);
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        $result = $build();
+
+        if ($page === 1 || $result['data'] !== []) {
+            $this->cache->put($key, $result, (int) config('comments.cache_ttl'));
+        }
+
+        return $result;
     }
 
     public function flush(): void

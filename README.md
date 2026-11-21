@@ -7,6 +7,26 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Демо: живые обновления через WebSocket
+
+```bash
+docker compose up -d
+docker compose exec app php artisan migrate
+docker compose exec app php artisan db:seed --class=CommentSeeder   # 40 веток от 6 демо-авторов
+```
+
+1. Откройте http://localhost:8086 в двух окнах: обычном и инкогнито (или в двух браузерах).
+2. В первом окне добавьте комментарий или ответьте на существующий.
+3. Во втором окне появится уведомление («New comment from …» / «… replied to …»), список обновится, новый комментарий подсветится жёлтым. Кнопка Show прокручивает к нему, а если ветка на другой странице, открывает нужную.
+4. Ответьте во втором окне на комментарий из первого: в первом придёт особое уведомление «… replied to your comment».
+5. Если окно в фоне, в заголовке вкладки появляется счётчик: «(2) Comments».
+
+Окно автора своё событие не получает (`broadcast(...)->toOthers()` по `X-Socket-ID`), оно обновляет список само после ответа сервера.
+
+Путь события: `POST /comments` → `CommentCreated` → очередь RabbitMQ → воркер `queue` → Reverb → Laravel Echo во всех остальных вкладках → `GET /comments`.
+
+После изменения кода событий или задач перезапустите воркер: `docker compose exec app php artisan queue:restart`.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

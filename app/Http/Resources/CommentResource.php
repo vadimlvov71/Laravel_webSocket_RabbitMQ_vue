@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * JSON-представление комментария.
@@ -24,6 +25,11 @@ class CommentResource extends JsonResource
             'home_page' => $this->home_page,
             'text' => $this->text,
             'created_at' => $this->created_at->toIso8601String(),
+            'attachment' => $this->attachment_path ? [
+                'type' => $this->attachment_type,
+                'name' => $this->attachment_name,
+                'url' => Storage::disk('public')->url($this->attachment_path),
+            ] : null,
             'replies' => self::collection($this->whenLoaded('replies')),
         ];
     }
