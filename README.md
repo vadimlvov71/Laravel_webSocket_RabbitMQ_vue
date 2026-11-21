@@ -38,6 +38,19 @@ docker compose exec app php artisan db:seed --class=CommentSeeder   # 40 вет�
 
 После изменения кода событий или задач перезапустите воркер: `docker compose exec app php artisan queue:restart`.
 
+## Поиск (Elasticsearch)
+
+Поле «Search comments…» над таблицей ищет по тексту и имени автора: русская и английская морфология («очередь» найдёт «очереди»), опечатки («коментарий»), начало слова при наборе. Найденные слова подсвечены; клик открывает страницу с веткой и подсвечивает комментарий.
+
+```bash
+docker compose exec app php artisan comments:reindex   # создать индекс и загрузить все комментарии
+```
+
+- Новые и удалённые комментарии попадают в индекс сами: событие модели → задача `SyncCommentToSearch` → очередь `default` → воркер `queue-default` → Elasticsearch.
+- Запросы к Elasticsearch идут через `Http` Laravel (REST API), без отдельного клиента: `App\Services\CommentSearch`.
+- Если Elasticsearch не запущен, страница работает, поиск отвечает «Search is temporarily unavailable». Выключить совсем: `ELASTICSEARCH_ENABLED=false`.
+- После изменения схемы индекса (`CommentSearch::MAPPING`) выполните `comments:reindex`.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

@@ -46,6 +46,14 @@ WebSocket (Reverb)
     Воркеры: rabbitmq:consume (basic_consume), сервисы queue (broadcasts) и queue-default (default). --sleep=0.1 обязателен: пакет ждёт без блокировки и иначе спит 3 с, уведомления опаздывали бы до 3 с.
     Демо-данные: CommentSeeder (постоянные авторы из CommentSeeder::AUTHORS). В конце сбрасывает кэш, потому что DatabaseSeeder отключает события моделей.
 
+Поиск (Elasticsearch)
+
+    Только через App\Services\CommentSearch и Http Laravel (REST API), без пакета-клиента. Настройки в config/services.php (elasticsearch), в phpunit.xml поиск выключен; тесты включают его и подменяют ответы Http::fake().
+    В индексе текст без HTML (strip_tags + html_entity_decode). Подсветка только с encoder=html и тегами <mark>: тогда snippet можно выводить через v-html.
+    Индекс обновляет задача SyncCommentToSearch (очередь default, воркер queue-default) из событий created/deleted модели Comment. Задача сверяет документ с БД (есть — записать, нет — удалить), поэтому повтор безопасен. Сохранение комментария не должно зависеть от Elasticsearch и брокера.
+    Любая ошибка Elasticsearch превращается в SearchUnavailableException, эндпоинт отвечает 503.
+    После изменения MAPPING, после seeder'а без событий и при расхождении индекса: php artisan comments:reindex.
+
 Безопасность
 
     Поле сортировки принимаем только через Enum, направление только asc|desc.

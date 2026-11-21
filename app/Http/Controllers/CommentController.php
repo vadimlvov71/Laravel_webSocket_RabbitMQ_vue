@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\SearchUnavailableException;
 use App\Http\Requests\ListCommentsRequest;
+use App\Http\Requests\SearchCommentsRequest;
 use App\Http\Requests\StoreCommentRequest;
 use App\Models\Comment;
+use App\Services\CommentSearch;
 use App\Services\CommentService;
 use Illuminate\Http\JsonResponse;
 
@@ -38,6 +41,23 @@ class CommentController extends Controller
     public function page(ListCommentsRequest $request, Comment $comment): JsonResponse
     {
         return response()->json($this->comments->locate($comment, $request->sort(), $request->dir()));
+    }
+
+    /**
+     * Полнотекстовый поиск (Elasticsearch). Параметр q, от 2 символов.
+     *
+     * Формат ответа: {data: [{id, parent_id, root_id, user_name, created_at, snippet}]},
+     * snippet: экранированный HTML только с <mark>. 503, если поиск недоступен.
+     */
+    public function search(SearchCommentsRequest $request, CommentSearch $search): JsonResponse
+    {
+        try {
+            return response()->json(['data' => $search->search($request->term())]);
+        } catch (SearchUnavailableException $e) {
+            report($e);
+
+            return response()->json(['message' => 'Search is temporarily unavailable.'], 503);
+        }
     }
 
     /** Сохраняет комментарий или ответ на комментарий. */

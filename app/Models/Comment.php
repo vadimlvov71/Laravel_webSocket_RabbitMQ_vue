@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Jobs\SyncCommentToSearch;
 use App\Services\CommentCache;
+use App\Services\CommentSearch;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -19,6 +21,26 @@ class Comment extends Model
         // любое изменение набора комментариев делает закэшированные страницы устаревшими
         static::created(fn () => app(CommentCache::class)->flush());
         static::deleted(fn () => app(CommentCache::class)->flush());
+
+        static::created(fn (Comment $comment) => self::syncSearch($comment));
+        static::deleted(fn (Comment $comment) => self::syncSearch($comment));
+    }
+
+    /**
+     * Индекс поиска обновляет задача в очереди. Если брокер недоступен, комментарий
+     * всё равно сохраняется: индекс догонит php artisan comments:reindex.
+     */
+    private static function syncSearch(Comment $comment): void
+    {
+        if (! app(CommentSearch::class)->enabled()) {
+            return;
+        }
+
+        try {
+            SyncCommentToSearch::dispatch($comment->id);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     public function parent(): BelongsTo

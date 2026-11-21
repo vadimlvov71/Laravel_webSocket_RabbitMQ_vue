@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Comment;
 use App\Services\CommentCache;
+use App\Services\CommentSearch;
 use App\Services\CommentSanitizer;
 use Illuminate\Database\Seeder;
 
@@ -38,6 +39,12 @@ class CommentSeeder extends Seeder
         // DatabaseSeeder отключает события моделей (WithoutModelEvents),
         // поэтому сброс кэша списка из Comment::created здесь не сработает
         app(CommentCache::class)->flush();
+
+        // по той же причине задачи индексации не отправлялись: загружаем индекс целиком.
+        // Elasticsearch может быть не запущен, тогда демо-данные всё равно остаются.
+        if (app(CommentSearch::class)->enabled() && $this->command?->call('comments:reindex') !== 0) {
+            $this->command?->warn('Search index was not updated: run php artisan comments:reindex later.');
+        }
     }
 
     private function replies(Comment $parent, int $count, int $depth): void

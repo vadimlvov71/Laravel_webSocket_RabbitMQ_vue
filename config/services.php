@@ -39,4 +39,14 @@ return [
         'secret'   => env('RECAPTCHA_SECRET_KEY'),
     ],
 
+    // Поиск по комментариям (App\Services\CommentSearch). Без Elasticsearch страница
+    // работает, только поиск отвечает 503. В тестах выключен (phpunit.xml),
+    // тесты поиска включают его сами и подменяют ответы через Http::fake().
+    'elasticsearch' => [
+        'enabled' => (bool) env('ELASTICSEARCH_ENABLED', true),
+        'host' => env('ELASTICSEARCH_HOST', 'http://elasticsearch:9200'),
+        'index' => env('ELASTICSEARCH_INDEX', 'comments'),
+        'timeout' => 3,
+    ],
+
 ];

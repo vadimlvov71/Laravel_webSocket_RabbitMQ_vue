@@ -6,6 +6,7 @@ import AttachmentPreview from './components/AttachmentPreview.vue';
 import BaseModal from './components/BaseModal.vue';
 import CommentForm from './components/CommentForm.vue';
 import CommentNode from './components/CommentNode.vue';
+import CommentSearch from './components/CommentSearch.vue';
 import ToastStack from './components/ToastStack.vue';
 import { listEnter } from './transitions';
 import { pushToast } from './toasts';
@@ -146,8 +147,11 @@ onBeforeUnmount(() => {
     <div class="mx-auto max-w-5xl space-y-6 px-4 py-8">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <h1 class="text-2xl font-bold">Comments</h1>
-            <button type="button" @click="openForm()"
+            <div class="flex w-full flex-wrap items-center gap-3 sm:w-auto">
+                <CommentSearch @select="showComment" />
+                <button type="button" @click="openForm()"
                     class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">Add comment</button>
+            </div>
         </div>
 
         <!-- Регион всегда в DOM, чтобы скринридер объявил появившийся текст -->

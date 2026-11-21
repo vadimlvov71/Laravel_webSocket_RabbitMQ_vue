@@ -51,6 +51,12 @@ resources/js/
     Превью в списке через AttachmentPreview.vue (кнопка, чтобы фокус возвращался на неё), просмотр через AttachmentLightbox.vue поверх BaseModal.
     Содержимое TXT выводим только через {{ }} в <pre>, никогда через v-html.
 
+Поиск
+
+    CommentSearch.vue: combobox по WAI-ARIA (фокус в поле, aria-activedescendant, стрелки, Enter, Esc), запрос через 300 мс после ввода и от 2 символов, старый запрос отменяется AbortController.
+    snippet из ответа выводится через v-html: он экранирован Elasticsearch, теги в нём только <mark>. Остальные поля через {{ }}.
+    Выбор результата вызывает showComment(id) из App.vue (страница по /comments/{id}/page, прокрутка, подсветка). Ответ 503: «Search is temporarily unavailable».
+
 Модальные окна и анимации
 
     Модальные окна только через BaseModal (Teleport to="body"): закрытие по Esc, по клику на фон и по кнопке ×, блокировка прокрутки страницы, фокус в окно при открытии и обратно на кнопку при закрытии, на телефоне на всю ширину.
