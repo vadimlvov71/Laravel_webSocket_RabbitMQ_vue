@@ -31,6 +31,50 @@ return [
 
     'connections' => [
 
+        /*
+         * RabbitMQ (vladimir-yuldashev/laravel-queue-rabbitmq). Раньше это подключение
+         * бралось только из конфига пакета в vendor; здесь оно явно, со схемой:
+         *
+         *   обменник comments (direct) --routing key = имя очереди--> очереди из topology.queues
+         *
+         * Пакет при публикации объявляет только обменник, но не очереди и не привязки:
+         * без них сообщение было бы потеряно. Их объявляет php artisan rabbitmq:setup
+         * (запускается при старте воркера, повторный запуск ничего не меняет).
+         */
+        'rabbitmq' => [
+            'driver' => 'rabbitmq',
+            'queue' => env('RABBITMQ_QUEUE', 'default'),
+            'connection' => 'default',
+
+            'hosts' => [
+                [
+                    'host' => env('RABBITMQ_HOST', '127.0.0.1'),
+                    'port' => env('RABBITMQ_PORT', 5672),
+                    'user' => env('RABBITMQ_USER', 'guest'),
+                    'password' => env('RABBITMQ_PASSWORD', 'guest'),
+                    'vhost' => env('RABBITMQ_VHOST', '/'),
+                ],
+            ],
+
+            'options' => [
+                'queue' => [
+                    'exchange' => env('RABBITMQ_EXCHANGE', 'comments'),
+                    'exchange_type' => 'direct',
+                    // routing key = имя очереди (%s), как у стандартного обменника
+                    'exchange_routing_key' => '%s',
+                ],
+            ],
+
+            // Не настройка пакета, а наша: что объявляет rabbitmq:setup.
+            // broadcasts: рассылки событий в WebSocket (CommentCreated::broadcastQueue),
+            // default: остальные задачи.
+            'topology' => [
+                'queues' => ['broadcasts', 'default'],
+            ],
+
+            'worker' => env('RABBITMQ_WORKER', 'default'),
+        ],
+
         'sync' => [
             'driver' => 'sync',
         ],

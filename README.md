@@ -23,7 +23,18 @@ docker compose exec app php artisan db:seed --class=CommentSeeder   # 40 вет�
 
 Окно автора своё событие не получает (`broadcast(...)->toOthers()` по `X-Socket-ID`), оно обновляет список само после ответа сервера.
 
-Путь события: `POST /comments` → `CommentCreated` → очередь RabbitMQ → воркер `queue` → Reverb → Laravel Echo во всех остальных вкладках → `GET /comments`.
+Путь события: `POST /comments` → `CommentCreated` → обменник RabbitMQ `comments` → очередь `broadcasts` → воркер `queue` → Reverb → Laravel Echo во всех остальных вкладках → `GET /comments`.
+
+### RabbitMQ
+
+Схема задана в `config/queue.php` (`connections.rabbitmq`) и объявляется командой `php artisan rabbitmq:setup` при старте воркеров:
+
+```
+обменник comments (direct) ──routing key = имя очереди──> broadcasts   рассылки в WebSocket, воркер queue
+                                                      └──> default      остальные задачи, воркер queue-default
+```
+
+Воркеры запущены через `rabbitmq:consume` (подписка `basic_consume`), поэтому в http://localhost:15672 у каждой очереди виден потребитель. Чтобы увидеть сообщение в очереди: `docker compose stop queue`, добавьте комментарий, откройте Queues → broadcasts → Get messages, затем `docker compose start queue`.
 
 После изменения кода событий или задач перезапустите воркер: `docker compose exec app php artisan queue:restart`.
 

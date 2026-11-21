@@ -30,6 +30,15 @@ class CommentCreated implements ShouldBroadcast
         return [new Channel('comments')];
     }
 
+    /**
+     * Отдельная очередь для рассылок: её слушает свой воркер, и уведомления
+     * не ждут за другими задачами из default.
+     */
+    public function broadcastQueue(): string
+    {
+        return 'broadcasts';
+    }
+
     public function broadcastAs(): string
     {
         return 'comment.created';

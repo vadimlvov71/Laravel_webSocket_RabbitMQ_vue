@@ -41,7 +41,9 @@ WebSocket (Reverb)
     В событии только id, parent_id, root_id, user_name, parent_user_name. E-mail и текст не рассылаем: клиент сам запрашивает GET /comments.
     GET /comments/{comment}/page возвращает {page, root_id}: на какой странице ветка при текущей сортировке (CommentRepository::pageOfRoot, порядок как в paginateRoots: поле, затем id).
     Параметры списка (sort, dir, page) разбирает ListCommentsRequest: неверные значения заменяются значениями по умолчанию, без 422.
-    Воркер queue:work держит код в памяти: после изменения событий или задач выполнить php artisan queue:restart.
+    Воркер держит код в памяти: после изменения событий или задач выполнить php artisan queue:restart.
+    RabbitMQ: подключение и схема явно в config/queue.php (connections.rabbitmq). Обменник comments (direct), routing key = имя очереди, очереди в topology.queues: broadcasts (рассылки, CommentCreated::broadcastQueue) и default. Пакет сам объявляет только обменник, очереди и привязки объявляет php artisan rabbitmq:setup (идемпотентна, запускается при старте воркеров). Новую очередь добавлять в topology.queues и заводить для неё воркер.
+    Воркеры: rabbitmq:consume (basic_consume), сервисы queue (broadcasts) и queue-default (default). --sleep=0.1 обязателен: пакет ждёт без блокировки и иначе спит 3 с, уведомления опаздывали бы до 3 с.
     Демо-данные: CommentSeeder (постоянные авторы из CommentSeeder::AUTHORS). В конце сбрасывает кэш, потому что DatabaseSeeder отключает события моделей.
 
 Безопасность

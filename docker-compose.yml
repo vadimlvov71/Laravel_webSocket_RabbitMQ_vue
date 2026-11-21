@@ -23,17 +23,35 @@ services:
     <<: *php
     container_name: laravel-app
  
-  # Queue worker (RabbitMQ)
+  # Воркеры RabbitMQ. rabbitmq:consume подписывается на очередь (basic_consume):
+  # RabbitMQ сам передаёт сообщение воркеру, и в веб-интерфейсе у очереди виден потребитель.
+  # --sleep=0.1: пакет ждёт сообщение без блокировки и, если его не было, спит --sleep
+  # (по умолчанию 3 с, отсюда задержка уведомлений до 3 с); меньше 1 с Laravel спит через usleep.
+  # rabbitmq:setup объявляет обменник comments, очереди и привязки (идемпотентно).
+  # depends_on с условиями повторяет общий блок x-php: свой список его заменил бы
+  # целиком, и воркер стартовал бы раньше, чем RabbitMQ готов.
+
+  # Рассылки событий в WebSocket (CommentCreated -> Reverb)
   queue:
     <<: *php
     container_name: laravel-queue
-    command: php artisan queue:work rabbitmq --tries=3 --sleep=3 --max-time=3600 --verbose
+    command: sh -c "php artisan rabbitmq:setup && php artisan rabbitmq:consume rabbitmq --queue=broadcasts --sleep=0.1 --tries=3 --max-time=3600 --verbose"
     restart: unless-stopped
     depends_on:
-      - app
-      - mysql
-      - redis
-      - rabbitmq
+      mysql:    { condition: service_healthy }
+      redis:    { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+
+  # Остальные задачи (очередь default)
+  queue-default:
+    <<: *php
+    container_name: laravel-queue-default
+    command: sh -c "php artisan rabbitmq:setup && php artisan rabbitmq:consume rabbitmq --queue=default --sleep=0.1 --tries=3 --max-time=3600 --verbose"
+    restart: unless-stopped
+    depends_on:
+      mysql:    { condition: service_healthy }
+      redis:    { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
  
   # Scheduler (php artisan schedule:run раз в минуту)
   #scheduler:
