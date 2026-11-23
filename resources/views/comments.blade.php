@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Comments</title>
-    <script>
+    <script nonce="{{ Vite::cspNonce() }}">
         window.__config = @json(['recaptchaSiteKey' => config('services.recaptcha.site_key')]);
     </script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])

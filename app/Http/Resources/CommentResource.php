@@ -21,7 +21,8 @@ class CommentResource extends JsonResource
         return [
             'id' => $this->id,
             'user_name' => $this->user_name,
-            'email' => $this->email,
+            /** Masked for privacy: the first character of the local part and the domain, e.g. `a***@example.com`. */
+            'email' => $this->maskedEmail(),
             'home_page' => $this->home_page,
             'text' => $this->text,
             'created_at' => $this->created_at->toIso8601String(),

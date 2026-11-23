@@ -16,6 +16,10 @@ class Comment extends Model
         'attachment_path', 'attachment_type', 'attachment_name',
     ];
 
+    // полный email не уходит наружу даже при случайном toArray()/toJson();
+    // публично показывается только maskedEmail()
+    protected $hidden = ['email'];
+
     protected static function booted(): void
     {
         // любое изменение набора комментариев делает закэшированные страницы устаревшими
@@ -58,5 +62,13 @@ class Comment extends Model
     public function replies(): HasMany
     {
         return $this->hasMany(self::class, 'parent_id');
+    }
+
+    /** «a***@example.com»: адрес нельзя собрать для рассылки, но видно, что он разный у разных авторов. */
+    public function maskedEmail(): string
+    {
+        [$local, $domain] = array_pad(explode('@', (string) $this->email, 2), 2, '');
+
+        return mb_substr($local, 0, 1).'***@'.$domain;
     }
 }
