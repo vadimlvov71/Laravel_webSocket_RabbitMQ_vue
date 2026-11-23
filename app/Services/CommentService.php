@@ -7,9 +7,10 @@ use App\Events\CommentCreated;
 use App\Http\Resources\CommentResource;
 use App\Models\Comment;
 use App\Repositories\CommentRepository;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection as SupportCollection;
 
 /**
  * Сценарии работы с комментариями. Контроллер вызывает только этот класс.
@@ -105,7 +106,7 @@ class CommentService
         $paginator = $this->comments->paginateRoots($sort, $dir, $page);
         $roots = $paginator->getCollection();
 
-        $this->attachReplies($roots, $this->comments->repliesGroupedByParent($roots->pluck('id')));
+        $this->attachReplies($roots, $this->comments->repliesGroupedByParent($roots->pluck('id')->all()));
 
         return $paginator;
     }
@@ -116,12 +117,13 @@ class CommentService
      */
     public function thread(Comment $comment): Comment
     {
-        $replies = $this->comments->repliesGroupedByParent(collect([$comment->root_id ?? $comment->id]));
-        $this->attachReplies(collect([$comment]), $replies);
+        $replies = $this->comments->repliesGroupedByParent([$comment->root_id ?? $comment->id]);
+        $this->attachReplies([$comment], $replies);
 
         return $comment;
     }
 
+    /** @return array{data: array<int, array<string, mixed>>, meta: array{current_page: int, last_page: int, total: int}} */
     private function buildPage(CommentSort $sort, string $dir, int $page): array
     {
         $paginator = $this->paginateWithReplies($sort, $dir, $page);
@@ -142,13 +144,13 @@ class CommentService
      * Рекурсивно подключает ответы к комментариям как загруженную связь replies.
      * Запросов к базе здесь нет: все ответы уже получены одним запросом.
      *
-     * @param  Collection<int, Comment>  $comments
-     * @param  Collection<int, Collection<int, Comment>>  $replies  ответы, сгруппированные по parent_id
+     * @param  iterable<Comment>  $comments
+     * @param  SupportCollection<array-key, Collection<int, Comment>>  $replies  ответы, сгруппированные по parent_id
      */
-    private function attachReplies(Collection $comments, Collection $replies): void
+    private function attachReplies(iterable $comments, SupportCollection $replies): void
     {
         foreach ($comments as $comment) {
-            $children = $replies->get($comment->id, collect());
+            $children = $replies->get($comment->id, new Collection());
             $comment->setRelation('replies', $children);
             $this->attachReplies($children, $replies);
         }

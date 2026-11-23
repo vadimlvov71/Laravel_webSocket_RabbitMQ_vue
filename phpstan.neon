@@ -1,0 +1,21 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    # 0..10; 6 — проверка типов аргументов, свойств и возвращаемых значений,
+    # включая типы элементов массивов и коллекций
+    level: 6
+    paths:
+        - app
+        - config
+        - database
+        - routes
+        - bootstrap/app.php
+    excludePaths:
+        # опубликована из пакета laravel/pulse, не наш код
+        - database/migrations/*_create_pulse_tables.php
+    # PHPDoc фреймворка иногда точнее реального поведения: например, Seeder::$command
+    # объявлен не-null, но пуст, если сидер вызван не из консоли. Не считаем такие
+    # типы гарантированными, чтобы проверки на null не помечались как лишние.
+    treatPhpDocTypesAsCertain: false
+    tmpDir: storage/framework/cache/phpstan

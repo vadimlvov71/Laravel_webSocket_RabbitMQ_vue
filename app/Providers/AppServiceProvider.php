@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\ApiClient;
 use App\OpenApi\ApiErrorResponses;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
@@ -32,10 +33,17 @@ class AppServiceProvider extends ServiceProvider
     private function configureApiRateLimits(): void
     {
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(120)
-            ->by('api:'.($request->user()?->currentAccessToken()?->id ?? $request->ip())));
+            ->by('api:'.self::rateLimitKey($request)));
 
         RateLimiter::for('api-write', fn (Request $request) => Limit::perMinute(20)
-            ->by('api-write:'.($request->user()?->currentAccessToken()?->id ?? $request->ip())));
+            ->by('api-write:'.self::rateLimitKey($request)));
+    }
+
+    private static function rateLimitKey(Request $request): string
+    {
+        $client = $request->user();
+
+        return $client instanceof ApiClient ? 'key:'.$client->currentAccessToken()->getKey() : 'ip:'.$request->ip();
     }
 
     /**

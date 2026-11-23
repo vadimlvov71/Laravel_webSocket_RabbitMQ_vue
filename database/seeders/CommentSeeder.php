@@ -7,6 +7,7 @@ use App\Services\CommentCache;
 use App\Services\CommentSearch;
 use App\Services\CommentSanitizer;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Carbon;
 
 /**
  * Демо-данные: несколько постоянных авторов, ветки ответов до 6 уровней,
@@ -42,8 +43,10 @@ class CommentSeeder extends Seeder
 
         // по той же причине задачи индексации не отправлялись: загружаем индекс целиком.
         // Elasticsearch может быть не запущен, тогда демо-данные всё равно остаются.
-        if (app(CommentSearch::class)->enabled() && $this->command?->call('comments:reindex') !== 0) {
-            $this->command?->warn('Search index was not updated: run php artisan comments:reindex later.');
+        // command пуст, если сидер вызван не из консоли
+        $command = $this->command;
+        if ($command && app(CommentSearch::class)->enabled() && $command->call('comments:reindex') !== 0) {
+            $command->warn('Search index was not updated: run php artisan comments:reindex later.');
         }
     }
 
@@ -72,7 +75,7 @@ class CommentSeeder extends Seeder
             'home_page' => $homePage,
             'text' => CommentSanitizer::sanitize($this->text()),
         ]);
-        $comment->created_at = $createdAt;
+        $comment->created_at = Carbon::instance($createdAt);
         $comment->save();
 
         return $comment;

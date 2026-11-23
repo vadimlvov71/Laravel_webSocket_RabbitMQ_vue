@@ -4,8 +4,9 @@ namespace App\Repositories;
 
 use App\Enums\CommentSort;
 use App\Models\Comment;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection as SupportCollection;
 
 /**
  * Единственное место, которое знает, как комментарии читаются из базы.
@@ -23,6 +24,8 @@ class CommentRepository
      * комментариев совпадает значение основного поля, например одинаковое имя.
      * Поле сортировки приходит как enum, поэтому произвольная строка в запрос
      * попасть не может.
+     *
+     * @return LengthAwarePaginator<int, Comment>
      */
     public function paginateRoots(CommentSort $sort, string $dir, int $page): LengthAwarePaginator
     {
@@ -38,10 +41,10 @@ class CommentRepository
      * по parent_id. Благодаря колонке root_id хватает одного запроса, и дерево
      * собирается в памяти без N+1.
      *
-     * @param  Collection<int, int>  $rootIds
-     * @return Collection<int, Collection<int, Comment>>
+     * @param  list<int>  $rootIds
+     * @return SupportCollection<array-key, Collection<int, Comment>>
      */
-    public function repliesGroupedByParent(Collection $rootIds): Collection
+    public function repliesGroupedByParent(array $rootIds): SupportCollection
     {
         return Comment::query()
             ->whereIn('root_id', $rootIds)
