@@ -7,26 +7,19 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
-## CI (GitHub Actions)
+## Содержание
 
-При каждом push и pull request запускается [.github/workflows/ci.yml](.github/workflows/ci.yml). Статус каждого этапа виден у коммита, в pull request и на вкладке Actions.
+- [Демо: живые обновления через WebSocket](#демо-живые-обновления-через-websocket)
+- [Поиск (Elasticsearch)](#поиск-elasticsearch)
+- [REST API](#rest-api)
+- [CI/CD](#cicd)
 
-| Этап | Что проверяет |
+## Документация
+
+| Документ | О чём |
 |---|---|
-| 1. Code style (PSR-12) | `pint --test`, `composer audit` |
-| 1. Static analysis (PHPStan) | Larastan, уровень 6 (`phpstan.neon`) |
-| 1. Frontend build | `npm run build`, `npm audit --audit-level=high` |
-| 2. Tests | `php artisan test` (Unit + Feature, SQLite в памяти) |
-| 3. Docker build | сборка образов, только при push в основную ветку |
-
-То же локально:
-
-```bash
-docker compose exec -T app ./vendor/bin/pint --test
-docker compose exec -T app ./vendor/bin/phpstan analyse --memory-limit=1G
-docker compose exec -T app php artisan test
-docker compose run --rm -e npm_config_cache=/tmp/.npm node npm run build
-```
+| 📈 [Масштабирование](docs/wiki/Scaling.md) | План на 1 млн комментариев и 100 тыс. пользователей в сутки: узкие места, кэш, горизонтальное масштабирование, порядок работ |
+| 📘 [REST API (OpenAPI)](http://localhost:8086/docs/api) | Интерактивная документация API, открывается при запущенном проекте |
 
 ## Демо: живые обновления через WebSocket
 
@@ -84,53 +77,25 @@ curl -H "Authorization: Bearer <token>" http://localhost:8086/api/v1/comments
 
 Документация OpenAPI 3.1 с «Try it»: http://localhost:8086/docs/api (спецификация: `/docs/api.json`). Генерируется из кода (Scramble); тесты сверяют каждый ответ API со спецификацией. Ключи: `api:client-list`, `api:client-revoke <id>`.
 
-## About Laravel
+## CI/CD
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+При каждом push и pull request GitHub Actions запускает [`.github/workflows/ci.yml`](.github/workflows/ci.yml): стиль кода (Pint), статический анализ (PHPStan), сборку фронтенда, тесты и сборку Docker-образов. Статусы этапов видны у коммита, в pull request и на вкладке [Actions](https://github.com/vadimlvov71/Laravel_webSocket_RabbitMQ_vue/actions).
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+![Проверки CI в pull request: Code style, Static analysis, Frontend build и Tests пройдены, Docker build пропущен (запускается только при push)](docs/images/ci-pipeline.png)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+| Этап | Что проверяет |
+|---|---|
+| 1. Code style (PSR-12) | `pint --test`, `composer audit` |
+| 1. Static analysis (PHPStan) | Larastan, уровень 6 (`phpstan.neon`) |
+| 1. Frontend build | `npm run build`, `npm audit --audit-level=high` |
+| 2. Tests | `php artisan test` (Unit + Feature, SQLite в памяти) |
+| 3. Docker build | сборка образов, только при push в основную ветку |
 
-## Learning Laravel
+То же локально:
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
-
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-## Laravel Sponsors
-
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
-
-### Premium Partners
-
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+docker compose exec -T app ./vendor/bin/pint --test
+docker compose exec -T app ./vendor/bin/phpstan analyse --memory-limit=1G
+docker compose exec -T app php artisan test
+docker compose run --rm -e npm_config_cache=/tmp/.npm node npm run build
+```

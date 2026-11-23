@@ -28,7 +28,7 @@
 
 ### 2.1. Лавина запросов после события WebSocket (самое опасное)
 
-Сейчас каждая открытая вкладка на событие `comment.created` перезапрашивает `GET /comments` ([App.vue](https://github.com/vadimlvov71/Laravel_webSocket_RabbitMQ_vue/blob/master/resources/js/App.vue), `onRemoteComment`). При 10 тыс. вкладок **один** новый комментарий даёт 10 тыс. одновременных запросов, а комментариев тысячи в сутки. К тому же в этот момент кэш только что сброшен.
+Сейчас каждая открытая вкладка на событие `comment.created` перезапрашивает `GET /comments` ([App.vue](https://github.com/vadimlvov71/Laravel_webSocket_RabbitMQ_vue/blob/main/resources/js/App.vue), `onRemoteComment`). При 10 тыс. вкладок **один** новый комментарий даёт 10 тыс. одновременных запросов, а комментариев тысячи в сутки. К тому же в этот момент кэш только что сброшен.
 
 Решения, по возрастанию сложности:
 
@@ -66,7 +66,7 @@ $table->index(['root_id', 'created_at', 'id']);
 
 ## 3. Кэш: точечный сброс
 
-Сейчас любой новый комментарий увеличивает версию в ключе ([CommentCache](https://github.com/vadimlvov71/Laravel_webSocket_RabbitMQ_vue/blob/master/app/Services/CommentCache.php)) и тем самым обесценивает **все** закэшированные страницы. При тысячах комментариев в сутки кэш почти не успевает работать.
+Сейчас любой новый комментарий увеличивает версию в ключе ([CommentCache](https://github.com/vadimlvov71/Laravel_webSocket_RabbitMQ_vue/blob/main/app/Services/CommentCache.php)) и тем самым обесценивает **все** закэшированные страницы. При тысячах комментариев в сутки кэш почти не успевает работать.
 
 Лучше кэшировать в два уровня:
 
