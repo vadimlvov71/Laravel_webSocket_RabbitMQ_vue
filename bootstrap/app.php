@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -22,6 +23,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'abilities' => CheckAbilities::class,
             'ability' => CheckForAnyAbility::class,
         ]);
+
+        // CSP, X-Frame-Options и др. для всех ответов (config/security.php)
+        $middleware->append(SecurityHeaders::class);
 
         // страницы входа в проекте нет: гостя не перенаправляем, а отвечаем 401
         $middleware->redirectGuestsTo(fn () => null);
