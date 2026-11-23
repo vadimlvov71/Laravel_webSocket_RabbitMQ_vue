@@ -63,19 +63,10 @@ curl -H "Authorization: Bearer <token>" http://localhost:8086/api/v1/comments
 
 Документация OpenAPI 3.1 с «Try it»: http://localhost:8086/docs/api (спецификация: `/docs/api.json`). Генерируется из кода (Scramble); тесты сверяют каждый ответ API со спецификацией. Ключи: `api:client-list`, `api:client-revoke <id>`.
 
-## About Laravel
+## CI CD Pipeline deploy
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+* ![изображение](https://github.com/vadimlvov71/ddd_laravel/blob/main/public/images/image.png)
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
-
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
 
 ## Learning Laravel
 
