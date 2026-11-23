@@ -51,6 +51,18 @@ docker compose exec app php artisan comments:reindex   # создать инде
 - Если Elasticsearch не запущен, страница работает, поиск отвечает «Search is temporarily unavailable». Выключить совсем: `ELASTICSEARCH_ENABLED=false`.
 - После изменения схемы индекса (`CommentSearch::MAPPING`) выполните `comments:reindex`.
 
+## REST API
+
+`/api/v1`: список, ветка, поиск и создание комментариев (с вложениями, без reCAPTCHA). Доступ по ключам Sanctum с правами `comments:read` / `comments:write`.
+
+```bash
+docker compose exec app php artisan migrate
+docker compose exec app php artisan api:client-create "Partner" --contact=dev@partner.example   # ключ показывается один раз
+curl -H "Authorization: Bearer <token>" http://localhost:8086/api/v1/comments
+```
+
+Документация OpenAPI 3.1 с «Try it»: http://localhost:8086/docs/api (спецификация: `/docs/api.json`). Генерируется из кода (Scramble); тесты сверяют каждый ответ API со спецификацией. Ключи: `api:client-list`, `api:client-revoke <id>`.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

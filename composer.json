@@ -12,6 +12,7 @@
         "laravel/framework": "^12.0",
         "laravel/pulse": "^1.10",
         "laravel/reverb": "^1.13",
+        "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10.1",
         "vladimir-yuldashev/laravel-queue-rabbitmq": "^15.0"
     },
@@ -24,6 +25,7 @@
         "laravel/telescope": "^5.28",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
+        "osteel/openapi-httpfoundation-testing": "^0.15.0",
         "phpunit/phpunit": "^11.5.50"
     },
     "autoload": {

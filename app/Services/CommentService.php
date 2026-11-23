@@ -7,6 +7,7 @@ use App\Events\CommentCreated;
 use App\Http\Resources\CommentResource;
 use App\Models\Comment;
 use App\Repositories\CommentRepository;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 
@@ -93,13 +94,38 @@ class CommentService
         return ['page' => $this->comments->pageOfRoot($root, $sort, $dir), 'root_id' => $root->id];
     }
 
-    private function buildPage(CommentSort $sort, string $dir, int $page): array
+    /**
+     * Страница корневых комментариев, у каждого загружены ответы всех уровней
+     * (связь replies). Без кэша: для REST API, где ответ строит CommentResource.
+     *
+     * @return LengthAwarePaginator<int, Comment>
+     */
+    public function paginateWithReplies(CommentSort $sort, string $dir, int $page): LengthAwarePaginator
     {
         $paginator = $this->comments->paginateRoots($sort, $dir, $page);
         $roots = $paginator->getCollection();
 
-        $replies = $this->comments->repliesGroupedByParent($roots->pluck('id'));
-        $this->attachReplies($roots, $replies);
+        $this->attachReplies($roots, $this->comments->repliesGroupedByParent($roots->pluck('id')));
+
+        return $paginator;
+    }
+
+    /**
+     * Комментарий с ответами на него всех уровней (поддерево, а не вся ветка от корня).
+     * Ответы берутся одним запросом по root_id, как и для списка.
+     */
+    public function thread(Comment $comment): Comment
+    {
+        $replies = $this->comments->repliesGroupedByParent(collect([$comment->root_id ?? $comment->id]));
+        $this->attachReplies(collect([$comment]), $replies);
+
+        return $comment;
+    }
+
+    private function buildPage(CommentSort $sort, string $dir, int $page): array
+    {
+        $paginator = $this->paginateWithReplies($sort, $dir, $page);
+        $roots = $paginator->getCollection();
 
         return [
             // ресурс сразу превращается в обычный массив: в кэш кладём данные, а не объекты

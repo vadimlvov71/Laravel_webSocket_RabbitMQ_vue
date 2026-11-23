@@ -5,7 +5,7 @@
 
 | Что | Где | Пример | |---|---|---| | Разбор параметров запроса, ответ | app/Http/Controllers | CommentController | | Валидация входных данных | app/Http/Requests, app/Rules | StoreCommentRequest, ValidCommentMarkup | | Сценарии, кэш, очистка данных | app/Services | CommentService, CommentCache, CommentSanitizer | | Запросы к БД | app/Repositories | CommentRepository | | Форма JSON | app/Http/Resources | CommentResource | | Фиксированные наборы значений | app/Enums | CommentSort | | События | app/Events | CommentCreated |
 
-Контроллер не содержит запросов к БД и приватных методов с логикой: он вызывает сервис. Интерфейс репозитория не нужен (KISS), подмена реализации не планируется.
+Контроллер не содержит запросов к БД и приватных методов с логикой: он вызывает сервис. REST API (/api/v1, ключи, OpenAPI) — отдельный skill api-conventions. Интерфейс репозитория не нужен (KISS), подмена реализации не планируется.
 Как добавить типовые вещи
 
 Новое поле сортировки. Добавить case в CommentSort, убедиться, что на колонке есть индекс (миграция), добавить тест. Список значений в других местах не дублировать.
