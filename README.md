@@ -9,6 +9,7 @@
 
 ## Содержание
 
+- [Быстрый старт](#быстрый-старт)
 - [Демо: живые обновления через WebSocket](#демо-живые-обновления-через-websocket)
 - [Поиск (Elasticsearch)](#поиск-elasticsearch)
 - [REST API](#rest-api)
@@ -22,12 +23,29 @@
 | 📘 [REST API (OpenAPI)](http://localhost:8086/docs/api) | Интерактивная документация API, открывается при запущенном проекте |
 | 🤝 [Как вносить изменения](CONTRIBUTING.md) | Ветки, сообщения коммитов (Conventional Commits), pull request |
 
+## Быстрый старт
+
+Нужен только Docker с Compose v2.
+
+```bash
+git clone https://github.com/vadimlvov71/Laravel_webSocket_RabbitMQ_vue.git
+cd Laravel_webSocket_RabbitMQ_vue
+./start.sh --seed
+```
+
+Скрипт создаёт `.env`, собирает образы, ставит зависимости PHP и JS, собирает фронтенд, запускает все сервисы, выполняет миграции, загружает демо-комментарии и индекс поиска, а в конце печатает ссылки: сайт http://localhost:8086, документация API, RabbitMQ, phpMyAdmin. Первый запуск занимает несколько минут.
+
+| Команда | Что делает |
+|---|---|
+| `./start.sh` | запуск без демо-данных; повторный запуск безопасен, данные не трогает |
+| `./start.sh --seed` | то же + демо-комментарии |
+| `./start.sh --fresh` | пересоздать таблицы БД (**данные удаляются**) + демо-комментарии |
+| `docker compose down` | остановить |
+
 ## Демо: живые обновления через WebSocket
 
 ```bash
-docker compose up -d
-docker compose exec app php artisan migrate
-docker compose exec app php artisan db:seed --class=CommentSeeder   # 40 веток от 6 демо-авторов
+./start.sh --seed   # 40 веток от 6 демо-авторов
 ```
 
 1. Откройте http://localhost:8086 в двух окнах: обычном и инкогнито (или в двух браузерах).
