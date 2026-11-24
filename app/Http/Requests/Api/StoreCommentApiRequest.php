@@ -13,6 +13,7 @@ use Illuminate\Support\Arr;
 /** A new comment or a reply (with `parent_id`). */
 class StoreCommentApiRequest extends StoreCommentRequest
 {
+    /** @return array<string, mixed> */
     public function rules(): array
     {
         return Arr::except(parent::rules(), ['captcha']);

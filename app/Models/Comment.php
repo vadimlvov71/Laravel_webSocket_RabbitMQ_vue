@@ -9,6 +9,21 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property int $id
+ * @property int|null $parent_id
+ * @property int|null $root_id
+ * @property string $user_name
+ * @property string $email
+ * @property string|null $home_page
+ * @property string $text
+ * @property string|null $attachment_path
+ * @property string|null $attachment_type
+ * @property string|null $attachment_name
+ * @property \Illuminate\Support\Carbon $created_at
+ * @property \Illuminate\Support\Carbon $updated_at
+ * @property-read Comment|null $parent
+ */
 class Comment extends Model
 {
     protected $fillable = [
@@ -47,6 +62,7 @@ class Comment extends Model
         }
     }
 
+    /** @return BelongsTo<Comment, $this> */
     public function parent(): BelongsTo
     {
         return $this->belongsTo(self::class, 'parent_id');
@@ -58,6 +74,8 @@ class Comment extends Model
      * Для вывода всего дерева эта связь не используется напрямую (она загрузила бы
      * один уровень): CommentService подключает ответы всех уровней одним запросом
      * по root_id.
+     *
+     * @return HasMany<Comment, $this>
      */
     public function replies(): HasMany
     {

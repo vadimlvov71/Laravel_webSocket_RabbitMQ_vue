@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+# новый запуск отменяет предыдущий для той же ветки
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Этапы:
+#   1. Code style, Static analysis, Frontend build  — параллельно, быстрые
+#   2. Tests                                         — после сборки фронтенда (нужен manifest для @vite)
+#   3. Docker build                                  — только при push в основную ветку
+# У каждого этапа свой статус у коммита и в pull request: «CI / 1. Code style (PSR-12)» и т.д.
+
+jobs:
+  lint:
+    name: "1. Code style (PSR-12)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-app
+      - name: Pint
+        run: ./vendor/bin/pint --test
+      - name: Composer audit (known vulnerabilities)
+        run: composer audit
+
+  phpstan:
+    name: "1. Static analysis (PHPStan)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-app
+      - name: Prepare Laravel
+        run: cp .env.example .env && php artisan key:generate
+      # --error-format=github: ошибки показываются прямо на строках кода в pull request
+      - name: PHPStan (Larastan, level 6)
+        run: ./vendor/bin/phpstan analyse --no-progress --memory-limit=1G --error-format=github
+
+  frontend:
+    name: "1. Frontend build"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: npm audit (high and critical)
+        run: npm audit --audit-level=high
+      - name: Upload built assets for tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: public/build
+          retention-days: 1
+
+  test:
+    name: "2. Tests (Unit + Feature)"
+    needs: frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-app
+      - name: Download built assets
+        uses: actions/download-artifact@v4
+        with:
+          name: build
+          path: public/build
+      # остальные переменные (SQLite в памяти, array-кэш, sync-очередь,
+      # выключенные Elasticsearch/Pulse/Telescope) задаёт phpunit.xml
+      - name: Prepare Laravel
+        run: cp .env.example .env && php artisan key:generate
+      - name: Run tests
+        run: php artisan test
+
+  docker:
+    name: "3. Docker build"
+    needs: [lint, phpstan, test]
+    # сборка образов долгая: только для основной ветки, не для каждого pull request
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compose file
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+      - name: Build images
+        run: docker compose build

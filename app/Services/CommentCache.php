@@ -25,8 +25,10 @@ class CommentCache
      * Пустые страницы после первой не кэшируются: номер страницы задаёт клиент,
      * и перебором ?page=1..N можно было бы забить кэш страницами за пределами списка.
      *
-     * @param  Closure(): array{data: array<int, mixed>}  $build  строит страницу, если её нет в кэше
-     * @return array{data: array<int, mixed>}
+     * @template TPage of array{data: array<int, mixed>}
+     *
+     * @param  Closure(): TPage  $build  строит страницу, если её нет в кэше
+     * @return TPage
      */
     public function remember(string $sort, string $dir, int $page, Closure $build): array
     {
