@@ -22,6 +22,7 @@ services:
   app:
     <<: *php
     container_name: laravel-app
+    restart: unless-stopped
  
   # Воркеры RabbitMQ. rabbitmq:consume подписывается на очередь (basic_consume):
   # RabbitMQ сам передаёт сообщение воркеру, и в веб-интерфейсе у очереди виден потребитель.
@@ -70,6 +71,7 @@ services:
     command: php artisan pulse:check
     restart: unless-stopped
   nginx:
+    restart: unless-stopped   # поднимается сам после перезапуска Docker
     image: nginx:1.27-alpine
     container_name: laravel-nginx
     ports:
@@ -82,6 +84,7 @@ services:
  
   # Node: Vite dev-server
   node:
+    restart: unless-stopped   # поднимается сам после перезапуска Docker
     image: node:22-alpine
     working_dir: /var/www/html
     user: "${UID:-1000}:${GID:-1000}"
