@@ -41,13 +41,15 @@ run() {
     log=$(mktemp)
 
     info "$title"
-    if "$@" >"$log" 2>&1; then
+    # код берём сразу после команды: внутри `if` в $? был бы код самого if (0)
+    "$@" >"$log" 2>&1
+    code=$?
+    if [ "$code" -eq 0 ]; then
         success "$title"
         rm -f "$log"
         return 0
     fi
 
-    code=$?
     error "$title (код выхода: $code)"
     echo -e "${RED}--- последние строки вывода ---${NC}" >&2
     tail -n 30 "$log" >&2
@@ -88,6 +90,24 @@ command -v docker >/dev/null 2>&1   || { error "Docker не установлен
 docker compose version >/dev/null 2>&1 || { error "Не найден плагин 'docker compose' (нужен Docker Compose v2)"; exit 1; }
 docker info >/dev/null 2>&1         || { error "Docker daemon не запущен или нет прав (попробуйте: sudo usermod -aG docker \$USER и перелогиньтесь)"; exit 1; }
 
+# Минимальная версия, на которой проект проверен. Ниже возможны непонятные ошибки
+# на середине запуска (например, нет флагов, которые появились позже).
+MIN_COMPOSE=2.20.0
+
+# true, если версия $1 >= $2 (сравнение по числам: 2.9 < 2.12)
+version_ge() { [ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -n 1)" = "$2" ]; }
+
+COMPOSE_VERSION=$(docker compose version --short 2>/dev/null | sed 's/^v//')
+if [ -z "$COMPOSE_VERSION" ] || ! version_ge "$COMPOSE_VERSION" "$MIN_COMPOSE"; then
+    error "Нужен Docker Compose ${MIN_COMPOSE} или новее, установлен: ${COMPOSE_VERSION:-неизвестно}"
+    echo "  Docker из официального репозитория (Ubuntu/Debian):" >&2
+    echo "    sudo apt-get update && sudo apt-get install --only-upgrade docker-compose-plugin" >&2
+    echo "  Docker Desktop: обновите Docker Desktop." >&2
+    echo "  Другие способы: https://docs.docker.com/compose/install/linux/" >&2
+    exit 1
+fi
+success "Docker Compose ${COMPOSE_VERSION}"
+
 [ -f docker-compose.yml ] || { error "docker-compose.yml не найден в $(pwd)"; exit 1; }
 [ -f composer.json ]      || { error "composer.json не найден в $(pwd)"; exit 1; }
 
@@ -125,9 +145,38 @@ run "Сборка фронтенда (npm ci + vite build)" \
 rm -f public/hot
 
 # ---------- запуск ----------
-# --wait: ждём, пока все сервисы запущены, а сервисы с healthcheck — healthy
-run "Запуск контейнеров и ожидание готовности (MySQL, Redis, RabbitMQ, Elasticsearch)" \
-    docker compose up -d --wait --wait-timeout 300
+# Сервисы с healthcheck в docker-compose.yml: без них приложение не работает.
+HEALTHY_SERVICES=(mysql redis rabbitmq elasticsearch)
+WAIT_SECONDS=300
+
+# Ждёт, пока сервисы с healthcheck станут healthy. Не зависит от версии Compose:
+# флаг `up --wait-timeout` появился только в Compose 2.20.
+wait_healthy() {
+    local deadline=$((SECONDS + WAIT_SECONDS)) service id status pending
+
+    while :; do
+        pending=()
+        for service in "${HEALTHY_SERVICES[@]}"; do
+            id=$(docker compose ps -aq "$service")
+            status=$([ -n "$id" ] && docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$id" 2>/dev/null)
+            case "$status" in
+                healthy) ;;
+                unhealthy) echo "Сервис $service: unhealthy"; docker compose logs --tail=20 "$service"; return 1 ;;
+                *) pending+=("$service:${status:-not created}") ;;
+            esac
+        done
+
+        [ ${#pending[@]} -eq 0 ] && return 0
+        if [ "$SECONDS" -ge "$deadline" ]; then
+            echo "Не дождались за ${WAIT_SECONDS} с: ${pending[*]}"
+            return 1
+        fi
+        sleep 3
+    done
+}
+
+run "Запуск контейнеров" docker compose up -d
+run "Ожидание готовности (MySQL, Redis, RabbitMQ, Elasticsearch; до ${WAIT_SECONDS} с)" wait_healthy
 
 # ---------- база и хранилище ----------
 if $FRESH; then
